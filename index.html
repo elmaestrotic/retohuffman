@@ -2,170 +2,948 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Reto Huffman - Simulador socrático</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Huffman: proceso completo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;500;600;700&family=Patrick+Hand&display=swap" rel="stylesheet">
 <style>
-body{font-family:system-ui,sans-serif;max-width:900px;margin:1rem auto;padding:0 1rem;color:#222}
-.card{border:1px solid #ccc;border-radius:8px;padding:1rem;margin:1rem 0}
-.q{font-weight:600;color:#145}
-.msg{margin:.5rem 0;min-height:1.2em}.ok{color:#080}.bad{color:#b00}.hint{color:#765}
-.list{display:flex;align-items:center;flex-wrap:wrap;gap:.3rem;margin:.5rem 0}
-.node{border:2px solid #357;border-radius:6px;padding:.3rem .6rem;cursor:pointer;background:#eef}
-.node.sel{background:#fd8}.arrow{color:#888}
-table{border-collapse:collapse}td,th{border:1px solid #bbb;padding:.2rem .5rem}
-input{padding:.2rem;font-family:monospace}
-pre{background:#f6f6f6;padding:.5rem;overflow:auto}
+:root{
+  --board:#24382f;
+  --board-deep:#1b2b24;
+  --chalk:#f0f4e8;
+  --chalk-dim:rgba(240,244,232,.58);
+  --chalk-faint:rgba(240,244,232,.22);
+  --yellow:#f4d06f;
+  --cyan:#9adcd8;
+  --salmon:#ef9a80;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--board:#24382f;--board-deep:#1b2b24}}
+:root[data-theme="dark"]{--board:#24382f;--board-deep:#1b2b24}
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:
+    radial-gradient(120% 80% at 20% 10%, rgba(255,255,255,.045) 0%, transparent 55%),
+    radial-gradient(90% 70% at 85% 90%, rgba(255,255,255,.035) 0%, transparent 60%),
+    radial-gradient(140% 120% at 50% 50%, var(--board) 0%, var(--board-deep) 100%);
+  background-color:var(--board-deep);
+  color:var(--chalk);
+  font-family:'Patrick Hand', ui-rounded, system-ui, sans-serif;
+  font-size:17px;
+  min-height:100vh;
+  padding:clamp(14px,2.5vw,34px);
+}
+body::before{
+  content:"";position:fixed;inset:0;pointer-events:none;opacity:.5;
+  background:
+    radial-gradient(3px 2px at 12% 22%, rgba(255,255,255,.10), transparent 60%),
+    radial-gradient(2px 2px at 62% 12%, rgba(255,255,255,.08), transparent 60%),
+    radial-gradient(4px 3px at 82% 62%, rgba(255,255,255,.06), transparent 60%),
+    radial-gradient(3px 2px at 32% 78%, rgba(255,255,255,.07), transparent 60%),
+    radial-gradient(2px 2px at 48% 46%, rgba(255,255,255,.06), transparent 60%);
+}
+.wrap{max-width:1280px;margin:0 auto;position:relative}
+h1{font-family:'Caveat',cursive;font-weight:600;font-size:clamp(30px,4.6vw,52px);text-align:center;margin:0 0 2px;letter-spacing:.5px;text-shadow:0 1px 0 rgba(255,255,255,.12)}
+.sub{text-align:center;color:var(--chalk-dim);margin:0 0 18px;font-size:clamp(15px,1.6vw,19px)}
+.rule{height:1px;background:linear-gradient(90deg,transparent,var(--chalk-faint) 12%,var(--chalk-faint) 88%,transparent);margin:0 0 18px}
+
+/* entrada */
+.inbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:center;margin-bottom:6px}
+.inbar label{color:var(--chalk-dim);font-size:16px}
+#inp{font-family:'Caveat',cursive;font-size:32px;font-weight:600;color:var(--yellow);background:rgba(255,255,255,.04);border:1.5px dashed var(--chalk-faint);border-radius:4px;padding:0 12px;width:min(320px,80vw);letter-spacing:3px;text-align:center}
+#inp:focus{outline:none;border-color:var(--yellow);border-style:solid}
+.count{color:var(--chalk-dim);font-size:14px;min-width:60px}
+.err{color:var(--salmon);text-align:center;font-size:15px;min-height:20px;margin-bottom:6px}
+.samples{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-bottom:16px;font-size:14px;color:var(--chalk-dim);align-items:center}
+.samples button{font-size:14px;padding:2px 8px}
+
+.controls{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:center;margin-bottom:12px}
+button{
+  font-family:'Patrick Hand',sans-serif;font-size:16px;color:var(--chalk);
+  background:rgba(255,255,255,.05);border:1px dashed var(--chalk-faint);
+  border-radius:3px;padding:6px 12px;cursor:pointer;transition:background .15s ease,border-color .15s ease;
+}
+button:hover{background:rgba(255,255,255,.11);border-color:var(--chalk-dim)}
+button:focus-visible{outline:2px solid var(--yellow);outline-offset:2px}
+button.primary{border:1px solid var(--yellow);color:var(--yellow);background:rgba(244,208,111,.08)}
+button.primary:hover{background:rgba(244,208,111,.18)}
+button[disabled]{opacity:.4;cursor:not-allowed}
+.step{font-family:'Caveat',cursive;font-size:26px;font-weight:600;color:var(--yellow);min-width:130px;text-align:center}
+.stages{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-bottom:10px}
+.stages button{font-size:14px;padding:4px 10px;color:var(--chalk-dim)}
+.stages button.on{border-style:solid;border-color:var(--cyan);color:var(--cyan);background:rgba(154,220,216,.10)}
+.stages button.done{color:var(--chalk)}
+.progress{height:3px;background:var(--chalk-faint);border-radius:2px;margin:0 auto 16px;max-width:900px;overflow:hidden}
+.progress i{display:block;height:100%;background:var(--yellow);transition:width .3s ease}
+
+.slab{border:1px dashed var(--chalk-faint);border-radius:4px;padding:12px 16px;background:rgba(255,255,255,.028);margin-top:14px}
+.ttl{color:var(--chalk-dim);font-size:15px;letter-spacing:.4px;margin-bottom:8px}
+.stitle{font-family:'Caveat',cursive;font-size:clamp(26px,3vw,34px);font-weight:600;color:var(--cyan);margin-bottom:2px}
+.math{font-family:'Caveat',cursive;font-size:clamp(21px,2.2vw,27px);line-height:1.5;font-weight:500}
+.val{color:var(--yellow);font-weight:600}
+.dim{color:var(--chalk-dim)}
+.cy{color:var(--cyan)} .sa{color:var(--salmon)}
+.scroll{overflow-x:auto}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.grid2 > .slab{margin-top:14px}
+@media (max-width:860px){.grid2{grid-template-columns:1fr}}
+.center{text-align:center}
+
+/* chips */
+.chips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;align-items:center}
+.chip{font-family:'Caveat',cursive;font-size:25px;border:1.5px solid var(--c,var(--chalk));color:var(--c,var(--chalk));background:var(--bg,transparent);border-radius:3px;padding:0 10px;line-height:1.3;white-space:nowrap}
+.chip.hl{box-shadow:0 0 0 3px rgba(244,208,111,.45)}
+.chip small{font-family:'Patrick Hand',sans-serif;font-size:12px;opacity:.8;margin-left:4px}
+.grp{display:flex;flex-direction:column;align-items:center;gap:4px;padding:6px 10px;border:1px dashed var(--chalk-faint);border-radius:4px}
+.grp .gl{font-size:14px;color:var(--chalk-dim)}
+
+/* palabra */
+.word{display:flex;gap:6px;justify-content:center;flex-wrap:wrap}
+.lt{display:flex;flex-direction:column;align-items:center;min-width:34px}
+.lt .ch{font-family:'Caveat',cursive;font-size:34px;font-weight:600;color:var(--c,var(--chalk));width:36px;text-align:center;border-bottom:2px solid transparent;opacity:.45}
+.lt .cd{font-family:'Caveat',cursive;font-size:19px;color:var(--c);height:22px;letter-spacing:1px}
+.lt.done .ch{opacity:1}
+.lt.cur .ch{opacity:1;border-bottom-color:var(--c);transform:translateY(-3px)}
+.lt.cur .cd{font-weight:700}
+
+/* lista enlazada */
+.ll{display:flex;flex-wrap:wrap;gap:6px;align-items:center;justify-content:center}
+.nd{font-family:'Caveat',cursive;font-size:24px;border:1.5px solid var(--c,var(--chalk));color:var(--c,var(--chalk));background:var(--bg,transparent);border-radius:3px;padding:0 10px;line-height:1.25;display:inline-flex;flex-direction:column;align-items:center}
+.nd small{font-family:'Patrick Hand',sans-serif;font-size:12px;color:var(--chalk-dim);line-height:1}
+.nd.hl{border-color:var(--yellow);color:var(--yellow);background:rgba(244,208,111,.10);box-shadow:0 0 0 3px rgba(244,208,111,.25)}
+.arr{color:var(--chalk-dim);font-size:20px}
+.nul,.front{color:var(--chalk-dim);font-family:'Caveat',cursive;font-size:22px}
+
+/* árboles */
+.svgwrap{overflow-x:auto;text-align:center}
+.svgwrap svg{height:auto;display:inline-block}
+
+/* tablas */
+.tbl{border-collapse:collapse;font-family:'Caveat',cursive;font-size:23px;margin:0 auto}
+.tbl th{font-family:'Patrick Hand',sans-serif;font-weight:normal;font-size:14px;color:var(--chalk-dim);border-bottom:1px dashed var(--chalk-faint);padding:4px 10px}
+.tbl td{text-align:center;padding:0 10px}
+.tbl td.k{color:var(--c);font-weight:700}
+.tbl td.cd{letter-spacing:2px}
+.tbl td.how{font-size:19px;color:var(--chalk-dim);text-align:left}
+.tbl tr.new td{background:rgba(244,208,111,.12)}
+.tbl tr.new td.cd{color:var(--yellow)}
+.tbl tr.hit td{background:var(--bg)}
+.tbl tr.tot td{border-top:1px dashed var(--chalk-faint);font-weight:600}
+.tbl td.n{text-align:right;color:var(--yellow)}
+.tbl td.l{text-align:left}
+.tbl td.big{color:var(--salmon);font-weight:700}
+
+/* tira de bits */
+.strip{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;padding:4px 2px}
+.byte{display:flex;flex-direction:column;align-items:center;gap:3px;padding:5px 7px;border:1.5px dashed transparent;border-radius:5px}
+.byte.cut{border-color:var(--chalk-faint)}
+.byte.on{border-style:solid;border-color:var(--yellow);background:rgba(244,208,111,.05)}
+.blabel{font-family:'Caveat',cursive;font-size:21px;color:var(--chalk-dim);height:23px}
+.byte.on .blabel{color:var(--yellow)}
+.nibs{display:flex;gap:3px;width:100%}
+.nibs span{flex:1;text-align:center;font-family:'Caveat',cursive;font-size:17px;color:var(--chalk-dim);border-bottom:1px dashed var(--chalk-faint)}
+.cells{display:flex;gap:3px}
+.cell{width:28px;display:flex;flex-direction:column;align-items:center}
+.pos{font-size:11px;color:var(--chalk-faint);height:15px}
+.bit{width:28px;height:34px;display:grid;place-items:center;font-family:'Caveat',cursive;font-size:26px;font-weight:600;border:1.5px solid var(--c,var(--chalk-faint));color:var(--c,var(--chalk));background:var(--bg,transparent);border-radius:3px}
+.bit.empty{border-style:dashed;color:transparent;--c:var(--chalk-faint);background:transparent}
+.bit.pad{border-style:dashed;border-color:var(--salmon);color:var(--salmon);background:transparent;opacity:.85}
+.bit.padx{border-style:dashed;border-color:var(--salmon);color:var(--salmon);background:transparent;text-decoration:line-through;opacity:.6}
+.bit.plain{--c:var(--chalk-dim)}
+.bit.prog{border-color:var(--yellow);border-width:2px;color:var(--yellow);background:rgba(244,208,111,.08)}
+.cell.cur .bit{box-shadow:0 0 0 3px rgba(244,208,111,.35)}
+.mk{height:20px;font-family:'Caveat',cursive;font-size:19px;color:var(--c);font-weight:600}
+.cell.new .bit{animation:pop .5s ease}
+@keyframes pop{0%{transform:translateY(-14px);opacity:0}100%{transform:none;opacity:1}}
+
+/* tarjeta de byte */
+.card{border:1.5px solid var(--yellow);border-radius:5px;padding:10px 12px;background:rgba(255,255,255,.025);max-width:420px;margin:0 auto}
+.card h3{margin:0 0 6px;font-family:'Caveat',cursive;font-size:24px;font-weight:600;text-align:center}
+.g8{display:grid;grid-template-columns:56px repeat(8,28px);gap:3px;align-items:center;justify-content:center}
+.g8 .rl{font-size:13px;color:var(--chalk-dim);text-align:right;padding-right:4px}
+.g8 .w{font-size:13px;color:var(--chalk-dim);text-align:center}
+.g8 .p{font-family:'Caveat',cursive;font-size:20px;text-align:center}
+.g8 .p.z{color:var(--chalk-faint)}
+.g8 .bit{height:28px;font-size:23px}
+.sum{font-family:'Caveat',cursive;font-size:22px;text-align:center;margin:6px 0 4px}
+.nib{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px}
+.nib div{border-top:1px dashed var(--chalk-faint);padding-top:4px;text-align:center;font-family:'Caveat',cursive;font-size:20px;line-height:1.3}
+.nib b{font-size:24px;letter-spacing:2px}
+.nib .hx{font-size:30px;color:var(--yellow);font-weight:700}
+
+/* hex */
+.hexrow{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;font-family:'Caveat',cursive;font-size:26px}
+.hexrow span{border:1px dashed var(--chalk-faint);border-radius:3px;padding:0 8px}
+.hexrow.c span{border-style:solid;border-color:var(--yellow);color:var(--yellow);background:rgba(244,208,111,.07)}
+.hexrow span.ph{color:var(--chalk-faint)}
+
+/* lectura */
+.buf{display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;margin:4px 0 8px}
+.buf .bits{font-family:'Caveat',cursive;font-size:44px;font-weight:700;letter-spacing:7px;color:var(--yellow);min-width:90px;text-align:center;border-bottom:2px dashed var(--chalk-faint);line-height:1.1}
+.reg{font-family:'Caveat',cursive;font-size:clamp(20px,2vw,24px);line-height:1.45}
+.yes{color:var(--cyan);font-weight:700}
+.no{color:var(--salmon)}
+.emit{display:inline-block;font-size:28px;font-weight:700;color:var(--c);border:1.5px solid var(--c);background:var(--bg);border-radius:3px;padding:0 10px;line-height:1.2}
+
+/* traza */
+.tracewrap{max-height:360px;overflow:auto}
+.trace{width:100%;border-collapse:collapse;font-size:14px;min-width:860px}
+.trace th{position:sticky;top:0;background:#20332a;color:var(--chalk-dim);font-weight:normal;font-size:12px;padding:6px 4px;border-bottom:1px dashed var(--chalk-faint);text-align:center}
+.trace td{text-align:center;padding:2px 5px;border-bottom:1px solid rgba(240,244,232,.06)}
+.trace td.m{font-family:'Caveat',cursive;font-size:21px;letter-spacing:1px}
+.trace td.ok{color:var(--cyan)}
+.trace td.nk{color:var(--chalk-dim)}
+.trace td.sym{font-family:'Caveat',cursive;font-size:22px;font-weight:700;color:var(--c);background:var(--bg)}
+.trace td.txt{font-family:'Caveat',cursive;font-size:21px;text-align:left;letter-spacing:1px}
+.trace tr.new td{background:rgba(244,208,111,.10)}
+.trace tr.new td.sym{background:var(--bg)}
+
+.bigword{font-family:'Caveat',cursive;font-size:clamp(34px,5vw,56px);font-weight:700;letter-spacing:5px;text-align:center}
+.bigword span{color:var(--c)}
+.ok-badge{display:inline-block;margin-top:6px;font-family:'Caveat',cursive;font-size:30px;color:var(--yellow);border:1.5px solid var(--yellow);border-radius:4px;padding:0 14px;background:rgba(244,208,111,.08)}
+.recap{font-size:16px;line-height:1.8;color:var(--chalk-dim);margin:0;padding-left:22px}
+.recap b{color:var(--chalk);font-weight:normal}
+.foot{margin-top:20px;text-align:center;color:var(--chalk-faint);font-size:14px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+#retoBox summary{cursor:pointer;font-family:'Caveat',cursive;font-size:clamp(24px,2.6vw,30px);font-weight:600;color:var(--yellow)}
+#retoBox .rq{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:8px 0}
+#retoBox .rq label{color:var(--chalk-dim)}
+#retoBox input{font-family:'Caveat',cursive;font-size:26px;color:var(--yellow);background:rgba(255,255,255,.04);border:1.5px dashed var(--chalk-faint);border-radius:4px;padding:0 8px;width:110px;text-align:center;letter-spacing:2px}
+#retoBox input.wide{width:min(280px,80vw)}
+#retoBox input:focus{outline:none;border-color:var(--yellow);border-style:solid}
+#retoBox input.ok{border-style:solid;border-color:var(--cyan)}
+#retoBox input.bad{border-style:solid;border-color:var(--salmon)}
+#retoMsg{font-family:'Caveat',cursive;font-size:26px;margin-top:6px;min-height:34px}
 </style>
 </head>
 <body>
-<h1>Reto Huffman</h1>
-<p>Sigue el paso a paso. El simulador no te da la respuesta: te hace preguntas y pistas hasta que la construyas tú.
-Repasamos <b>árboles</b>, <b>listas enlazadas</b> y la conversión <b>binario → hexadecimal</b>.</p>
-<div class="card">
-  <label>Texto del reto: <input id="text" value="ABRACADABRA" maxlength="40"></label>
-  <button id="start">Comenzar</button>
+<div class="wrap">
+
+  <h1>Huffman de punta a punta</h1>
+  <p class="sub">Escribe una cadena (máximo 11 caracteres) y recorre todo: lista enlazada, árbol tradicional, árbol canónico, hexadecimal y descompresión.</p>
+  <div class="rule"></div>
+
+  <div class="inbar">
+    <label for="inp">cadena:</label>
+    <input id="inp" maxlength="11" value="MISSISSIPPI" autocomplete="off" spellcheck="false">
+    <button id="build" class="primary">Construir</button>
+    <span class="count" id="count"></span>
+  </div>
+  <div class="err" id="err"></div>
+  <div class="samples">ejemplos:
+    <button data-s="MISSISSIPPI">MISSISSIPPI</button>
+    <button data-s="ALEXANDER">ALEXANDER</button>
+    <button data-s="ABRACADABRA">ABRACADABRA</button>
+    <button data-s="BANANA">BANANA</button>
+    <button data-s="AAAAB">AAAAB</button>
+  </div>
+
+  <div class="controls">
+    <button id="prev" aria-label="Paso anterior">← Anterior</button>
+    <span class="step" id="stepLbl">Inicio</span>
+    <button id="next" class="primary">Siguiente →</button>
+    <button id="auto">Reproducir</button>
+    <button id="reset">Reiniciar</button>
+  </div>
+  <div class="stages" id="stages"></div>
+  <div class="progress"><i id="bar"></i></div>
+
+  <div class="slab">
+    <div class="stitle" id="stitle"></div>
+    <div class="math" id="explain"></div>
+  </div>
+
+  <div id="view"></div>
+
+  <details class="slab" id="retoBox">
+<summary>Modo reto: resu&eacute;lvelo t&uacute; antes de ver la respuesta</summary>
+<p class="dim">Calcula en papel el c&oacute;digo can&oacute;nico de cada letra, el total de bits y los bytes en hexadecimal. Luego comprueba. Si te equivocas, mira la etapa indicada en el simulador.</p>
+<div class="rq"><button id="retoNew" class="primary">Reto nuevo</button>
+<label for="retoWord">o usa tu cadena:</label><input id="retoWord" class="wide" maxlength="11" autocomplete="off" spellcheck="false" placeholder="ej. MANZANA">
+<button id="retoOwn">Retar con mi cadena</button></div>
+<div id="retoBody"></div>
+</details>
+<p class="foot">Reglas usadas · cola: por frecuencia y, si empatan, por orden del carácter; el nodo nuevo entra después de los de igual peso · árbol: el primero que sale va a la izquierda (0); si pesan igual, el subárbol ya formado va a la izquierda · canónico: (longitud, carácter), «+1 y agregar 0» · bytes: se llenan desde el bit de peso 128 y el relleno va al final · teclas ← → para avanzar</p>
 </div>
-<div id="app"></div>
+
 <script>
-"use strict";
-const app = document.getElementById("app");
-let S;
+(function(){
+'use strict';
 
-function el(tag, attrs, ...kids) {
-  const e = document.createElement(tag);
-  Object.entries(attrs || {}).forEach(([k, v]) => { if (k === "onclick") e.onclick = v; else e.setAttribute(k, v); });
-  kids.forEach(k => e.append(k));
-  return e;
-}
-function card(title, question) {
-  const c = el("div", { class: "card" }, el("h2", {}, title), el("p", { class: "q" }, question));
-  app.append(c);
-  const msg = el("div", { class: "msg" });
-  c.append(msg);
-  c.scrollIntoView({ behavior: "smooth" });
-  return { c, say(t, cls) { msg.className = "msg " + cls; msg.textContent = t; } };
-}
-function leaves(n, code, out) {
-  if (n.left) { leaves(n.left, code + "0", out); leaves(n.right, code + "1", out); }
-  else out[n.ch] = code || "0";
-  return out;
-}
-function show(n, d = 0) {
-  if (!n.left) return "  ".repeat(d) + `'${n.ch}' (${n.w})\n`;
-  return "  ".repeat(d) + `* (${n.w})\n` + show(n.left, d + 1) + show(n.right, d + 1);
-}
+/* ============ utilidades ============ */
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+const show=c=>c===' '?'␣':c;
+const E=c=>esc(show(c));
+const PAL=['#9adcd8','#f4d06f','#ef9a80','#c9b6f2','#a8d88a','#f2a7c3','#f4b26f','#9bbcf2','#8fe0b8','#e0cf9b','#e89aa0'];
+function rgba(hex,a){const n=parseInt(hex.slice(1),16);return `rgba(${n>>16},${(n>>8)&255},${n&255},${a})`;}
+const W8=[128,64,32,16,8,4,2,1];
 
-function start() {
-  const text = document.getElementById("text").value;
-  app.textContent = "";
-  if (new Set(text).size < 2) { app.textContent = "Escribe un texto con al menos 2 símbolos distintos."; return; }
-  S = { text, freq: {} };
-  for (const ch of text) S.freq[ch] = (S.freq[ch] || 0) + 1;
-  step1();
-}
+/* ============ cálculo de todo el proceso ============ */
+function compute(word){
+  const D={word, chars:[...word]};
+  const n=D.chars.length;
+  const freq={}; D.chars.forEach(c=>freq[c]=(freq[c]||0)+1);
+  const cmp=(a,b)=>a<b?-1:a>b?1:0;
+  const syms=Object.keys(freq).sort((a,b)=>freq[a]-freq[b]||cmp(a,b));
+  D.freq=freq; D.syms=syms; D.n=n;
 
-function step1() {
-  const { c, say } = card("Paso 1. Frecuencias", `Texto: "${S.text}" (${S.text.length} símbolos). ¿Cuántas veces aparece cada símbolo?`);
-  const inputs = {}, t = el("table", {});
-  Object.keys(S.freq).sort().forEach(ch => {
-    inputs[ch] = el("input", { size: 4, type: "number" });
-    t.append(el("tr", {}, el("th", {}, JSON.stringify(ch)), el("td", {}, inputs[ch])));
+  // --- Huffman tradicional con lista enlazada ordenada ---
+  const nodes={}, leafId={}; let order=0;
+  syms.forEach((c,i)=>{order++;const id='L'+i;leafId[c]=id;nodes[id]={id,leaf:true,ch:c,w:freq[c],chars:c,order};});
+  let list=syms.map(c=>leafId[c]);
+  const hs=[{list:list.slice(),taken:[],made:null,pos:-1,swap:false}];
+  while(list.length>1){
+    const a=list.shift(), b=list.shift(), A=nodes[a], B=nodes[b];
+    let L=A, R=B, swap=false;
+    if(A.w===B.w && A.leaf && !B.leaf){L=B;R=A;swap=true;}
+    order++; const id='N'+order;
+    nodes[id]={id,leaf:false,w:A.w+B.w,left:L.id,right:R.id,chars:L.chars+R.chars,order};
+    let i=0; while(i<list.length && nodes[list[i]].w<=nodes[id].w) i++;
+    list.splice(i,0,id);
+    hs.push({list:list.slice(),taken:[a,b],made:id,pos:i,swap});
+  }
+  D.nodes=nodes; D.leafId=leafId; D.hs=hs; D.root=list[0];
+  const hcode={};
+  if(nodes[D.root].leaf) hcode[nodes[D.root].ch]='0';
+  else (function walk(id,p){const x=nodes[id];if(x.leaf){hcode[x.ch]=p;return;}walk(x.left,p+'0');walk(x.right,p+'1');})(D.root,'');
+  D.hcode=hcode;
+
+  // --- canónico ---
+  const len={}; syms.forEach(c=>len[c]=hcode[c].length);
+  const canon=syms.slice().sort((a,b)=>len[a]-len[b]||cmp(a,b));
+  const maxLen=Math.max(...canon.map(c=>len[c]));
+  const listNum=new Array(maxLen+1).fill(0); canon.forEach(c=>listNum[len[c]]++);
+  const first=[0], start=[0], prevOf=[0]; let code=0, acc=0;
+  for(let l=1;l<=maxLen;l++){ prevOf[l]=code; code=(code+listNum[l-1])<<1; first[l]=code; start[l]=acc; acc+=listNum[l]; }
+  const ccode={}, assign=[], nc=first.slice(); let prevCode=null;
+  canon.forEach(c=>{
+    const L=len[c], isFirst=nc[L]===first[L], v=nc[L]++;
+    const bin=v.toString(2).padStart(L,'0');
+    const r={c,L,v,bin,isFirst,lPrev:prevOf[L],blp:listNum[L-1]};
+    if(prevCode!==null){ r.prevCode=prevCode; r.plus=(parseInt(prevCode,2)+1).toString(2).padStart(prevCode.length,'0'); r.grow=L-prevCode.length; }
+    prevCode=bin; ccode[c]=bin; assign.push(r);
   });
-  const btn = el("button", { onclick() {
-    const wrong = Object.keys(S.freq).filter(ch => Number(inputs[ch].value) !== S.freq[ch]);
-    if (wrong.length) return say(`Revisa: ${wrong.map(w => JSON.stringify(w)).join(", ")}. Pista: recorre el texto y cuenta con calma; la suma total debe ser ${S.text.length}.`, "bad");
-    say("¡Correcto!", "ok"); btn.disabled = true; step2();
-  } }, "Verificar");
-  c.append(t, btn);
+  Object.assign(D,{len,canon,maxLen,listNum,first,start,ccode,assign});
+  D.col={}; canon.forEach((c,i)=>D.col[c]=PAL[i%PAL.length]);
+
+  // --- compresión ---
+  const bits=[], cum=[0];
+  D.chars.forEach((c,li)=>{[...ccode[c]].forEach((b,j)=>bits.push({b,c,li,start:j===0}));cum.push(bits.length);});
+  const N=bits.length, NB=Math.ceil(N/8), PAD=NB*8-N;
+  const padded=bits.map(x=>x.b).join('')+'0'.repeat(PAD);
+  const bytes=[];
+  for(let j=0;j<NB;j++){
+    const s=padded.slice(8*j,8*j+8), dec=parseInt(s,2);
+    bytes.push({s,dec,hi:s.slice(0,4),lo:s.slice(4),hiV:parseInt(s.slice(0,4),2),loV:parseInt(s.slice(4),2),hx:dec.toString(16).toUpperCase().padStart(2,'0')});
+  }
+  Object.assign(D,{bits,cum,N,NB,PAD,padded,bytes});
+  D.hex=bytes.map(b=>b.hx);
+  D.trad=syms.reduce((s,c)=>s+freq[c]*len[c],0);
+
+  // --- encabezado ---
+  D.header=[
+    [`Número de bits válidos (${N})`,1],
+    ['Longitud máxima de código',1],
+    [`listNum[l] para l = 1…${maxLen} (uno por longitud)`,maxLen],
+    [`Símbolos en orden canónico (${canon.map(show).join(' ')})`,canon.length],
+    ['Datos comprimidos',NB]
+  ];
+  D.headerTotal=D.header.reduce((s,r)=>s+r[1],0);
+
+  // --- descompresión (las dos versiones a la vez) ---
+  const BITS=padded.slice(0,N);
+  const symOfCode={}; canon.forEach(c=>symOfCode[ccode[c]]=c);
+  const rows=[], symAt=[], doneAt=[], startOf=[];
+  let v=0,l=0,buf='',text='',cs=0;
+  for(let i=0;i<N;i++){
+    const b=+BITS[i], vPrev=v;
+    v=2*v+b; l++; buf+=BITS[i];
+    const d=v-first[l], ok=d<listNum[l];
+    const r={i,b,l,v,vPrev,buf,vbin:v.toString(2).padStart(l,'0'),first:first[l],d,ok,cs,basic:symOfCode[buf]||null};
+    if(ok){
+      r.idx=start[l]+d; r.sym=canon[r.idx]; text+=r.sym;
+      for(let j=cs;j<=i;j++){symAt[j]=r.sym;doneAt[j]=i;startOf[j]=cs;}
+      v=0;l=0;buf='';cs=i+1;
+    }
+    r.text=text; rows.push(r);
+  }
+  Object.assign(D,{rows,symAt,doneAt,startOf,decoded:text});
+  return D;
 }
 
-function step2() {
-  S.list = Object.keys(S.freq).map(ch => ({ ch, w: S.freq[ch], left: null, right: null, order: ch }));
-  S.list.sort((a, b) => a.w - b.w || (a.order < b.order ? -1 : 1));
-  const { c, say } = card("Paso 2. Lista enlazada ordenada",
-    "Cada nodo es una hoja. ¿Cuáles dos nodos tienen menor peso? Selecciónalos (primero será el hijo 0/izquierdo, luego el 1/derecho) y pulsa Unir.");
-  const box = el("div", { class: "list" });
-  let sel = [];
-  const draw = () => {
-    box.textContent = "";
-    S.list.forEach((n, i) => {
-      if (i) box.append(el("span", { class: "arrow" }, "→"));
-      box.append(el("span", { class: "node" + (sel.includes(n) ? " sel" : ""), onclick() {
-        sel = sel.includes(n) ? sel.filter(x => x !== n) : sel.length < 2 ? [...sel, n] : sel; draw();
-      } }, n.left ? `* (${n.w})` : `${JSON.stringify(n.ch)} (${n.w})`));
+/* ============ pasos ============ */
+const STAGES=['① Frecuencias','② Lista enlazada + árbol','③ Códigos tradicionales','④ Árbol canónico','⑤ Bits → bytes → hex','⑥ Encabezado','⑦ Descompresión','⑧ Resultado'];
+function buildSteps(D){
+  const S=[];
+  S.push({st:0,k:'freq'});
+  for(let m=0;m<D.hs.length;m++) S.push({st:1,k:'merge',m});
+  S.push({st:2,k:'trad'});
+  S.push({st:3,k:'lens'});
+  S.push({st:3,k:'sort'});
+  D.canon.forEach((c,i)=>S.push({st:3,k:'canon',i}));
+  for(let i=1;i<=D.n;i++) S.push({st:4,k:'concat',i});
+  S.push({st:4,k:'cut'});
+  for(let j=0;j<D.NB;j++) S.push({st:4,k:'byte',j});
+  S.push({st:5,k:'header'});
+  S.push({st:6,k:'hex2bin'});
+  S.push({st:6,k:'tables'});
+  for(let i=0;i<D.N;i++) S.push({st:6,k:'bit',i});
+  S.push({st:7,k:'end'});
+  return S;
+}
+
+/* ============ piezas visuales ============ */
+const sty=(D,c)=>`--c:${D.col[c]};--bg:${rgba(D.col[c],.14)}`;
+function chip(D,c,extra='',cls=''){return `<span class="chip ${cls}" style="${sty(D,c)}">${E(c)}${extra}</span>`;}
+function slab(title,html,extra=''){return `<div class="slab ${extra}">${title?`<div class="ttl">${title}</div>`:''}${html}</div>`;}
+
+function nodeChip(D,id,cls=''){
+  const x=D.nodes[id];
+  if(x.leaf) return `<span class="nd ${cls}" style="${sty(D,x.ch)}">${E(x.ch)},${x.w}</span>`;
+  return `<span class="nd ${cls}">Null,${x.w}<small>{${esc([...x.chars].map(show).join(''))}}</small></span>`;
+}
+function linkedList(D,state,made){
+  return `<div class="ll"><span class="front">frente →</span>`+
+    state.list.map(id=>nodeChip(D,id,id===made?'hl':'')).join('<span class="arr">→</span>')+
+    `<span class="arr">→</span><span class="nul">null</span></div>`;
+}
+
+/* árbol genérico en SVG a partir de nodos posicionados */
+function svgTree(nodesArr,edges,W,H){
+  let s=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;min-width:${Math.min(W,540)}px;max-width:${Math.round(W*1.1)}px" role="img" aria-label="árbol">`;
+  const byId={}; nodesArr.forEach(n=>byId[n.id]=n);
+  const half=n=>n.shape==='circle'||n.shape==='free'?15:(n.shape==='null'?19:17);
+  edges.forEach(e=>{
+    const a=byId[e.a], b=byId[e.b]; if(!a||!b) return;
+    const x1=a.x,y1=a.y+half(a),x2=b.x,y2=b.y-half(b);
+    s+=`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${e.hl?'#f4d06f':(e.dash?'#ef9a80':'rgba(240,244,232,.55)')}" stroke-width="${e.hl?2.6:1.5}" ${e.dash?'stroke-dasharray="5 5"':''}/>`;
+    if(e.bit!=null){
+      const mx=(x1+x2)/2+(e.bit==='0'?-10:10), my=(y1+y2)/2;
+      s+=`<text x="${mx}" y="${my}" fill="#ef9a80" font-family="Caveat" font-size="19" text-anchor="middle" dominant-baseline="middle">${e.bit}</text>`;
+    }
+  });
+  nodesArr.forEach(n=>{
+    const hl=n.hl, stroke=hl?'#f4d06f':(n.color||'rgba(240,244,232,.85)');
+    if(n.shape==='leaf'){
+      s+=`<rect x="${n.x-25}" y="${n.y-17}" width="50" height="34" rx="3" fill="${hl?'rgba(244,208,111,.18)':rgba(n.color,.12)}" stroke="${stroke}" stroke-width="${hl?2.6:1.6}"/>`;
+      s+=`<text x="${n.x}" y="${n.y+1}" fill="${n.color}" font-family="Caveat" font-size="22" font-weight="600" text-anchor="middle" dominant-baseline="middle">${esc(n.text)}</text>`;
+    }else if(n.shape==='null'){
+      s+=`<rect x="${n.x-31}" y="${n.y-19}" width="62" height="38" rx="3" fill="${hl?'rgba(244,208,111,.15)':'none'}" stroke="${stroke}" stroke-width="${hl?2.4:1.5}"/>`;
+      s+=`<text x="${n.x}" y="${n.y-5}" fill="${hl?'#f4d06f':'#f0f4e8'}" font-family="Caveat" font-size="20" text-anchor="middle" dominant-baseline="middle">${esc(n.text)}</text>`;
+      if(n.sub) s+=`<text x="${n.x}" y="${n.y+11}" fill="rgba(240,244,232,.55)" font-family="Patrick Hand" font-size="11" text-anchor="middle" dominant-baseline="middle">${esc(n.sub)}</text>`;
+    }else if(n.shape==='circle'){
+      s+=`<circle cx="${n.x}" cy="${n.y}" r="15" fill="${hl?'rgba(244,208,111,.15)':'none'}" stroke="${stroke}" stroke-width="${hl?2.4:1.5}"/>`;
+      if(n.text) s+=`<text x="${n.x}" y="${n.y+1}" fill="#f0f4e8" font-family="Caveat" font-size="17" text-anchor="middle" dominant-baseline="middle">${esc(n.text)}</text>`;
+    }else if(n.shape==='free'){
+      s+=`<circle cx="${n.x}" cy="${n.y}" r="15" fill="none" stroke="#ef9a80" stroke-width="1.5" stroke-dasharray="4 4"/>`;
+      s+=`<text x="${n.x}" y="${n.y+30}" fill="#ef9a80" font-family="Caveat" font-size="17" text-anchor="middle">libre ${esc(n.text)}</text>`;
+    }
+    (n.below||[]).forEach(([t,c],i)=>{
+      s+=`<text x="${n.x}" y="${n.y+36+i*20}" fill="${c}" font-family="Caveat" font-size="${i===0?21:17}" font-weight="600" text-anchor="middle">${esc(t)}</text>`;
     });
-    box.append(el("span", { class: "arrow" }, "→ null"));
-  };
-  const btn = el("button", { onclick() {
-    if (sel.length !== 2) return say("Selecciona exactamente dos nodos.", "hint");
-    const sorted = S.list.map(n => n.w);
-    if (sel[0].w + sel[1].w !== sorted[0] + sorted[1])
-      return say("Esos no son los dos menores. Pista: la lista está ordenada; mira sus primeros elementos.", "bad");
-    const merged = { ch: null, w: sel[0].w + sel[1].w, left: sel[0], right: sel[1], order: "~" };
-    S.list = S.list.filter(n => !sel.includes(n));
-    let i = S.list.findIndex(n => n.w > merged.w);
-    if (i < 0) i = S.list.length;
-    S.list.splice(i, 0, merged);
-    sel = [];
-    say(`Nuevo nodo con peso ${merged.w}. Se insertó en la lista manteniendo el orden.`, "ok");
-    draw();
-    if (S.list.length === 1) { btn.disabled = true; S.root = S.list[0]; say("¡Quedó un solo nodo: la raíz del árbol!", "ok"); step3(); }
-  } }, "Unir");
-  c.append(box, btn);
-  draw();
-}
-
-function step3() {
-  const { c } = card("Paso 3. El árbol", "Este es el árbol que construiste. Observa: izquierda = 0, derecha = 1.");
-  c.append(el("pre", {}, show(S.root)));
-  step4();
-}
-
-function step4() {
-  S.codes = leaves(S.root, "", {});
-  const { c, say } = card("Paso 4. Códigos", "Recorre el árbol desde la raíz hasta cada hoja. ¿Qué código tiene cada símbolo?");
-  const inputs = {}, t = el("table", {});
-  Object.keys(S.codes).sort().forEach(ch => {
-    inputs[ch] = el("input", { size: 10 });
-    t.append(el("tr", {}, el("th", {}, JSON.stringify(ch)), el("td", {}, inputs[ch])));
   });
-  const btn = el("button", { onclick() {
-    const wrong = Object.keys(S.codes).filter(ch => inputs[ch].value.trim() !== S.codes[ch]);
-    if (wrong.length) return say(`Revisa ${wrong.map(w => JSON.stringify(w)).join(", ")}. Pista: ¿cuántos niveles baja? ¿giraste a la izquierda (0) o derecha (1) en cada uno?`, "bad");
-    say("¡Correcto! Los símbolos más frecuentes tienen códigos más cortos.", "ok"); btn.disabled = true; step5();
-  } }, "Verificar");
-  c.append(t, btn);
+  return s+'</svg>';
 }
 
-function step5() {
-  S.bin = [...S.text].map(ch => S.codes[ch]).join("");
-  const { c, say } = card("Paso 5. Codificar", `Reemplaza cada símbolo de "${S.text}" por su código y concatena. Compara: ASCII usaría ${S.text.length * 8} bits.`);
-  const inp = el("input", { size: 60 });
-  const btn = el("button", { onclick() {
-    const v = inp.value.replace(/\s/g, "");
-    if (v !== S.bin) return say(`No coincide${v.length !== S.bin.length ? ` (la longitud esperada es ${S.bin.length} bits, tú escribiste ${v.length})` : ""}. Pista: hazlo símbolo por símbolo.`, "bad");
-    say(`¡Correcto! ${S.bin.length} bits.`, "ok"); btn.disabled = true; step6();
-  } }, "Verificar");
-  c.append(inp, btn);
+const SW=74, LH=80, TOP=28;
+function huffSVG(D,roots,o={}){
+  const pos={}; let slot=0, maxD=0;
+  roots.forEach((r,ri)=>{
+    if(ri>0) slot+=0.35;
+    (function place(id,d){
+      const x=D.nodes[id]; maxD=Math.max(maxD,d);
+      if(x.leaf){pos[id]={x:20+(slot+.5)*SW,y:TOP+d*LH};slot++;return;}
+      place(x.left,d+1);place(x.right,d+1);
+      pos[id]={x:(pos[x.left].x+pos[x.right].x)/2,y:TOP+d*LH};
+    })(r,0);
+  });
+  const arr=[], edges=[];
+  Object.keys(pos).forEach(id=>{
+    const x=D.nodes[id], hl=o.hl&&o.hl.includes(id);
+    if(x.leaf){
+      const below=[];
+      if(o.codes) below.push([D.hcode[x.ch],'#f4d06f']);
+      if(o.lens) below.push(['long '+D.len[x.ch],'#ef9a80']);
+      arr.push({id,x:pos[id].x,y:pos[id].y,shape:'leaf',text:show(x.ch)+','+x.w,color:D.col[x.ch],hl,below});
+    }else{
+      const chs=[...x.chars].map(show).join('');
+      arr.push({id,x:pos[id].x,y:pos[id].y,shape:'null',text:'Null,'+x.w,sub:chs.length<=7?'{'+chs+'}':'',hl});
+      edges.push({a:id,b:x.left,bit:o.bits?'0':null,hl:id===o.made});
+      edges.push({a:id,b:x.right,bit:o.bits?'1':null,hl:id===o.made});
+    }
+  });
+  const H=TOP+maxD*LH+(o.codes||o.lens?72:36);
+  return svgTree(arr,edges,40+slot*SW,H);
 }
 
-function step6() {
-  const pad = (4 - S.bin.length % 4) % 4;
-  const padded = S.bin + "0".repeat(pad);
-  S.hex = padded.match(/.{4}/g).map(g => parseInt(g, 2).toString(16).toUpperCase()).join("");
-  const { c, say } = card("Paso 6. Binario → Hexadecimal",
-    `Agrupa los bits de 4 en 4 (de izquierda a derecha${pad ? `; faltan ${pad} bit(s), rellena con ceros al final` : ""}) y convierte cada grupo a un dígito hexadecimal (0-9, A-F).`);
-  const inp = el("input", { size: 30 });
-  const btn = el("button", { onclick() {
-    const v = inp.value.replace(/\s/g, "").toUpperCase();
-    if (v !== S.hex) return say("No coincide. Pista: 1010 = 8+2 = 10 = A. Calcula el valor de cada grupo de 4 bits.", "bad");
-    say(`¡Reto completado! Resultado: ${S.hex}`, "ok"); btn.disabled = true;
-  } }, "Verificar");
-  c.append(inp, btn);
+function canonSVG(D,assigned,o={}){
+  const codes=D.canon.map(c=>D.ccode[c]);
+  const isCode=p=>codes.includes(p), has=p=>codes.some(c=>c.startsWith(p));
+  const pos={}; let slot=0;
+  (function place(p){
+    if(isCode(p)){pos[p]={x:20+(slot+.5)*SW,y:TOP+p.length*LH};slot++;return;}
+    const kids=['0','1'].filter(b=>has(p+b)); kids.forEach(b=>place(p+b));
+    pos[p]={x:kids.reduce((s,b)=>s+pos[p+b].x,0)/kids.length,y:TOP+p.length*LH};
+  })('');
+  const asg=D.canon.slice(0,assigned).map(c=>D.ccode[c]);
+  const inner=new Set(), leaves=new Set(asg);
+  asg.forEach(b=>{for(let i=0;i<b.length;i++)inner.add(b.slice(0,i));});
+  let free=null;
+  if(assigned>=1 && assigned<D.canon.length){
+    const nb=D.ccode[D.canon[assigned]];
+    for(let i=1;i<=nb.length;i++){const p=nb.slice(0,i);if(!inner.has(p)&&!leaves.has(p)){free=p;break;}}
+  }
+  const just=o.hlLast&&assigned?D.ccode[D.canon[assigned-1]]:null;
+  const arr=[], edges=[];
+  inner.forEach(p=>{
+    arr.push({id:'p'+p,x:pos[p].x,y:pos[p].y,shape:'circle',text:'',hl:false});
+    ['0','1'].forEach(b=>{const q=p+b;
+      if(inner.has(q)) edges.push({a:'p'+p,b:'p'+q,bit:b,hl:just&&just.startsWith(q)});
+      else if(leaves.has(q)) edges.push({a:'p'+p,b:'k'+q,bit:b,hl:just&&just.startsWith(q)});
+      else if(q===free) edges.push({a:'p'+p,b:'free',bit:b,dash:true});
+    });
+  });
+  asg.forEach(b=>{const c=D.canon.find(x=>D.ccode[x]===b);
+    arr.push({id:'k'+b,x:pos[b].x,y:pos[b].y,shape:'leaf',text:show(c)+','+D.freq[c],color:D.col[c],hl:b===just,below:[[b,'#f4d06f']]});});
+  if(free!==null) arr.push({id:'free',x:pos[free].x,y:pos[free].y,shape:'free',text:free+'…'});
+  if(assigned===0) arr.push({id:'p',x:pos[''].x,y:pos[''].y,shape:'circle',text:'',hl:false});
+  return svgTree(arr,edges,40+slot*SW,TOP+D.maxLen*LH+72);
 }
 
-document.getElementById("start").onclick = start;
-start();
+function wordRow(D,upto,cur){
+  return `<div class="word">`+D.chars.map((c,i)=>{
+    const st=i<upto?(i===cur?'cur':'done'):'';
+    return `<div class="lt ${st}" style="${sty(D,c)}"><span class="ch">${E(c)}</span><span class="cd">${i<upto?D.ccode[c]:''}</span></div>`;
+  }).join('')+`</div>`;
+}
+
+/* tira de bits: mode 'enc' (comprimiendo) o 'dec' (descomprimiendo) */
+function strip(D,o){
+  let h='<div class="strip">';
+  for(let j=0;j<D.NB;j++){
+    const s=D.padded.slice(8*j,8*j+8);
+    const cls=(o.cut?'cut':'')+(o.active===j?' on':'');
+    const lbl=o.mode==='dec'?D.hex[j]:(o.cut?'Byte '+(j+1):'');
+    h+=`<div class="byte ${cls}"><div class="blabel">${lbl}</div>`;
+    if(o.mode==='dec') h+=`<div class="nibs"><span>${D.hex[j][0]} → ${s.slice(0,4)}</span><span>${D.hex[j][1]} → ${s.slice(4)}</span></div>`;
+    h+='<div class="cells">';
+    for(let i=8*j;i<8*j+8;i++){
+      let cls2='', bcls='', st='', mk='', txt=D.padded[i];
+      if(o.mode==='enc'){
+        if(i<o.upto){ const x=D.bits[i]; st=sty(D,x.c); if(x.start) mk=E(x.c); if(i>=o.from) cls2='new'; }
+        else if(i>=D.N && o.cut){ bcls='pad'; }
+        else { bcls='empty'; txt='·'; }
+      }else{
+        if(i>=D.N) bcls='padx';
+        else if(i<=o.cur){
+          if(D.doneAt[i]<=o.cur){ st=sty(D,D.symAt[i]); if(D.startOf[i]===i) mk=E(D.symAt[i]); }
+          else bcls='prog';
+          if(i===o.cur) cls2='cur';
+        }else bcls='plain';
+      }
+      h+=`<div class="cell ${cls2}" style="${st}"><span class="pos">${i+1}</span><span class="bit ${bcls}">${txt}</span><span class="mk">${mk}</span></div>`;
+    }
+    h+='</div></div>';
+  }
+  return h+'</div>';
+}
+
+function byteCard(D,j){
+  const B=D.bytes[j];
+  let g='<div class="g8"><span class="rl">bit</span>';
+  for(let i=0;i<8;i++){const gi=8*j+i; g+=gi<D.N?`<span class="bit" style="${sty(D,D.bits[gi].c)}">${B.s[i]}</span>`:`<span class="bit pad">0</span>`;}
+  g+='<span class="rl">peso</span>'+W8.map(w=>`<span class="w">${w}</span>`).join('');
+  g+='<span class="rl">bit×peso</span>'+W8.map((w,i)=>{const p=B.s[i]==='1'?w:0;return `<span class="p ${p?'':'z'}">${p}</span>`;}).join('')+'</div>';
+  const terms=W8.filter((w,i)=>B.s[i]==='1');
+  const nib=(s,v)=>`<b>${s}</b><br><span class="dim">8·${s[0]} + 4·${s[1]} + 2·${s[2]} + 1·${s[3]} = ${v}</span><br><span class="hx">${v.toString(16).toUpperCase()}</span>`;
+  return `<div class="card"><h3>Byte ${j+1} · ${B.s}</h3>${g}
+    <div class="sum">decimal: ${terms.length?terms.join(' + '):'0'} = <span class="val">${B.dec}</span></div>
+    <div class="nib"><div><span class="dim">nibble alto</span><br>${nib(B.hi,B.hiV)}</div><div><span class="dim">nibble bajo</span><br>${nib(B.lo,B.loV)}</div></div>
+    <div class="sum">byte en hex = <span class="val">${B.hx}</span></div></div>`;
+}
+
+function codeTable(D,o){
+  // o.cols: lista de columnas; o.upto: cuántos canónicos mostrar; o.newIdx; o.hit
+  const head={k:'carácter',f:'frec.',h:'código tradicional',l:'longitud',c:'código canónico',how:'cómo sale',fl:'frec × long'};
+  let h='<table class="tbl"><tr>'+o.cols.map(c=>`<th>${head[c]}</th>`).join('')+'</tr>';
+  const order=o.order||D.canon;
+  order.forEach(c=>{
+    const ci=D.canon.indexOf(c);
+    const cls=(o.newIdx===ci?'new ':'')+(o.hit===c?'hit':'');
+    h+=`<tr class="${cls}" style="${sty(D,c)}">`+o.cols.map(col=>{
+      if(col==='k') return `<td class="k">${E(c)}</td>`;
+      if(col==='f') return `<td>${D.freq[c]}</td>`;
+      if(col==='h') return `<td class="cd">${D.hcode[c]}</td>`;
+      if(col==='l') return `<td class="${o.bigLen?'big':''}">${D.len[c]}</td>`;
+      if(col==='fl') return `<td>${D.freq[c]} × ${D.len[c]} = ${D.freq[c]*D.len[c]}</td>`;
+      if(col==='c') return `<td class="cd">${o.upto===undefined||ci<o.upto?D.ccode[c]:'<span class="dim">?</span>'}</td>`;
+      if(col==='how'){
+        if(o.upto!==undefined&&ci>=o.upto) return '<td class="how"></td>';
+        const a=D.assign[ci];
+        if(ci===0) return `<td class="how">el primero: ${a.L>1?a.L+' ceros':'un 0'}</td>`;
+        return `<td class="how">${a.prevCode} + 1 = ${a.plus}${a.grow?` → agregar ${a.grow>1?a.grow+' ceros':'un 0'}`:' → misma longitud'}</td>`;
+      }
+      return '<td></td>';
+    }).join('')+'</tr>';
+  });
+  if(o.total) h+=`<tr class="tot"><td colspan="${o.cols.length-1}" style="text-align:right">total</td><td>${D.trad} bits</td></tr>`;
+  return h+'</table>';
+}
+
+function firstStartTable(D,hlL){
+  let h='<table class="tbl"><tr><th>l</th><th>listNum[l]</th><th>first[l]</th><th>start[l]</th></tr>';
+  for(let l=1;l<=D.maxLen;l++)
+    h+=`<tr class="${hlL===l?'new':''}"><td>${l}</td><td>${D.listNum[l]}</td><td>${D.first[l]} <span class="dim" style="font-size:16px">(${D.first[l].toString(2).padStart(l,'0')})</span></td><td>${D.start[l]}</td></tr>`;
+  return h+'</table>';
+}
+
+function traceTable(D,upto){
+  let h='<table class="trace"><tr><th>posición</th><th>bit</th><th>leído (básica)</th><th>l</th><th>v</th><th>first[l]</th><th>¿v − first[l] &lt; listNum[l]?</th><th>posición en la lista</th><th>símbolo</th><th>texto recuperado</th></tr>';
+  for(let i=0;i<=upto;i++){
+    const r=D.rows[i];
+    h+=`<tr class="${i===upto?'new':''}"><td>${r.i+1}</td><td class="m">${r.b}</td><td class="m">${r.buf}</td><td>${r.l}</td><td>${r.v}</td><td>${r.first}</td>`+
+      `<td class="${r.ok?'ok':'nk'}">${r.ok?'sí: código completo':'no: leer otro bit'}</td><td>${r.ok?r.idx+1:''}</td>`+
+      `<td class="${r.ok?'sym':''}" style="${r.ok?sty(D,r.sym):''}">${r.ok?E(r.sym):''}</td><td class="txt">${esc([...r.text].map(show).join(''))}</td></tr>`;
+  }
+  return h+'</table>';
+}
+
+const colorWord=(D,txt)=>[...txt].map(c=>`<span style="${sty(D,c)}">${E(c)}</span>`).join('');
+
+/* ============ explicación + vista por paso ============ */
+function renderStep(D,s,idx){
+  const V=[]; let T='', X='';
+  const nm=id=>{const x=D.nodes[id];return x.leaf?`${E(x.ch)},${x.w}`:`Null,${x.w}`;};
+
+  if(s.k==='freq'){
+    T='Contar cuántas veces aparece cada carácter';
+    X=`La cadena <span class="val">${esc(D.word)}</span> tiene <span class="val">${D.n}</span> caracteres y <span class="val">${D.syms.length}</span> distintos. `+
+      `Huffman solo necesita saber <span class="val">cuántas veces aparece cada uno</span> (su frecuencia o peso): los más frecuentes recibirán los códigos más cortos. `+
+      `<span class="dim">Hoy, en ASCII, cada carácter ocupa 8 bits: ${D.n} × 8 = ${D.n*8} bits.</span>`;
+    const byFreq=D.syms.slice().sort((a,b)=>D.freq[b]-D.freq[a]||(a<b?-1:1));
+    V.push(slab('la cadena',`<div class="word">${D.chars.map(c=>`<div class="lt done" style="${sty(D,c)}"><span class="ch">${E(c)}</span></div>`).join('')}</div>`));
+    V.push(`<div class="grid2">`+
+      slab('frecuencias',`<table class="tbl"><tr><th>carácter</th><th>frecuencia</th><th>código ASCII</th></tr>`+
+        byFreq.map(c=>`<tr style="${sty(D,c)}"><td class="k">${E(c)}</td><td>${D.freq[c]}</td><td class="dim">${c.charCodeAt(0)} = ${c.charCodeAt(0).toString(16).toUpperCase().padStart(2,'0')}h</td></tr>`).join('')+
+        `<tr class="tot"><td>total</td><td>${D.n}</td><td></td></tr></table>`)+
+      slab('como barras',`<div style="display:flex;flex-direction:column;gap:6px">${byFreq.map(c=>`<div style="display:flex;align-items:center;gap:8px">${chip(D,c)}<div style="height:16px;width:${D.freq[c]*26}px;background:${rgba(D.col[c],.55)};border-radius:2px"></div><span class="dim">${D.freq[c]}</span></div>`).join('')}</div>`)+
+    `</div>`);
+  }
+
+  else if(s.k==='merge'){
+    const st=D.hs[s.m], last=s.m===D.hs.length-1;
+    if(s.m===0){
+      T='Armar la lista enlazada ordenada';
+      X=`Cada carácter se vuelve un <span class="val">nodo hoja</span> (carácter, frecuencia). Se meten en una <span class="val">lista enlazada ordenada</span> de menor a mayor peso; si dos pesan igual, va primero el de menor código de carácter (orden alfabético). `+
+        (D.hs.length===1?`<span class="sa">Solo hay un carácter distinto:</span> no hay nada que fusionar. Por convención su código será <span class="val">0</span>.`
+                        :`El <span class="val">frente</span> de la lista siempre tiene los dos de menor peso: ahí empieza Huffman.`);
+    }else{
+      const [a,b]=st.taken, M=D.nodes[st.made], A=D.nodes[a], B=D.nodes[b];
+      T=`Fusión ${s.m} de ${D.hs.length-1}`;
+      const where=st.pos===0?'al frente':(st.pos===st.list.length-1?'al final':`en la posición ${st.pos+1}`);
+      X=`Salen los dos primeros de la lista: <span class="val">${nm(a)}</span> y <span class="val">${nm(b)}</span>. Se crea el nodo padre <span class="val">Null,${M.w}</span> (${A.w} + ${B.w}) `+
+        `con <span class="cy">${nm(M.left)}</span> a la izquierda (bit 0) y <span class="cy">${nm(M.right)}</span> a la derecha (bit 1)`+
+        (st.swap?' <span class="dim">(pesan igual: el subárbol ya formado va a la izquierda)</span>':'')+'. '+
+        (last?`La lista queda con <span class="val">un solo nodo</span>: es la raíz del árbol de Huffman.`
+             :`El nodo nuevo se inserta en orden, después de los de peso ≤ ${M.w}: queda <span class="val">${where}</span> de la lista.`);
+    }
+    let lst=linkedList(D,st,st.made);
+    if(s.m>0) lst=`<div class="chips" style="margin-bottom:10px"><span class="dim">salen:</span>${st.taken.map(id=>nodeChip(D,id,'hl')).join('')}<span class="dim">→ entra:</span>${nodeChip(D,st.made,'hl')}</div>`+lst;
+    V.push(slab('lista enlazada ordenada (cola de prioridad)',lst));
+    V.push(slab(`bosque de árboles: ${st.list.length===1?'un solo árbol':st.list.length+' árboles, uno por nodo de la lista'}`,
+      `<div class="svgwrap">${huffSVG(D,st.list,{hl:s.m>0?[...st.taken,st.made]:[],made:st.made})}</div>`));
+  }
+
+  else if(s.k==='trad'){
+    T='Leer los códigos del árbol tradicional';
+    X=`Se recorre el árbol desde la raíz: <span class="val">0 = izquierda, 1 = derecha</span>. El camino hasta cada hoja es su código. `+
+      `Los caracteres frecuentes quedan cerca de la raíz (códigos cortos). Total comprimido = Σ frecuencia × longitud = <span class="val">${D.trad} bits</span>, frente a ${D.n*8} bits en ASCII.`;
+    V.push(slab('árbol de Huffman tradicional',`<div class="svgwrap">${huffSVG(D,[D.root],{bits:true,codes:true})}</div>`));
+    V.push(slab('códigos tradicionales',codeTable(D,{cols:['k','f','h','l','fl'],order:D.syms.slice().sort((a,b)=>D.freq[b]-D.freq[a]||(a<b?-1:1)),total:true})));
+  }
+
+  else if(s.k==='lens'){
+    T='Quedarse solo con las longitudes';
+    X=`Para la versión canónica, del árbol <span class="val">solo importa la longitud</span> de cada código (la profundidad de cada hoja). `+
+      `Los ceros y unos exactos se van a recalcular con una regla fija; así el compresor no tiene que enviar el árbol. `+
+      `<span class="dim">Las longitudes son las mismas, así que el tamaño comprimido no cambia: ${D.trad} bits.</span>`;
+    V.push(slab('árbol tradicional con la longitud de cada hoja',`<div class="svgwrap">${huffSVG(D,[D.root],{bits:true,codes:true,lens:true})}</div>`));
+    V.push(slab('lo que se conserva',`<div class="chips">${D.syms.map(c=>chip(D,c,` <small>long</small> ${D.len[c]}`)).join('')}</div>`));
+  }
+
+  else if(s.k==='sort'){
+    T='Ordenar por (longitud, carácter) y contar';
+    X=`Se ordenan los caracteres <span class="val">primero por longitud</span> (los cortos antes) y, si empatan, <span class="val">por orden alfabético</span>. `+
+      `Se cuenta cuántos hay de cada longitud: eso es <span class="val">listNum</span> (índice = longitud, valor = cantidad). `+
+      `Con eso se sabe dónde empieza cada longitud: <span class="val">first[l] = (first[l−1] + listNum[l−1]) × 2</span>, que es lo mismo que «contar +1 y agregar un 0 cuando la longitud crece».`;
+    const groups=[]; D.canon.forEach(c=>{const g=groups[groups.length-1];if(g&&g.L===D.len[c])g.cs.push(c);else groups.push({L:D.len[c],cs:[c]});});
+    V.push(slab('orden canónico',`<div class="chips">${groups.map(g=>`<div class="grp"><span class="gl">longitud ${g.L}</span><div class="chips">${g.cs.map(c=>chip(D,c)).join('')}</div></div>`).join('')}</div>`));
+    let calc='<div class="reg">';
+    for(let l=1;l<=D.maxLen;l++) calc+=`<div>first[${l}] = (${D.first[l-1]===undefined?0:(l===1?0:D.first[l-1])} + ${D.listNum[l-1]}) × 2 = <span class="val">${D.first[l]}</span> <span class="dim">(${D.first[l].toString(2).padStart(l,'0')})</span></div>`;
+    calc+='</div>';
+    V.push(`<div class="grid2">`+slab(`listNum = [${D.listNum.join(', ')}] &nbsp;<span class="dim">(posición 0 sin usar)</span>`,firstStartTable(D))+slab('cálculo de first',calc)+`</div>`);
+  }
+
+  else if(s.k==='canon'){
+    const a=D.assign[s.i], lastC=s.i===D.canon.length-1;
+    T=`Código canónico de ${show(a.c)}`;
+    if(s.i===0) X=`El primero de la lista recibe <span class="val">puros ceros</span> de su longitud: <span class="val">${E(a.c)} = ${a.bin}</span>. `;
+    else X=`Se suma 1 al código anterior: ${a.prevCode} + 1 = <span class="val">${a.plus}</span>. `+
+      (a.grow?`${E(a.c)} mide ${a.L}, así que se ${a.grow>1?'agregan '+a.grow+' ceros':'agrega un 0'} al final → <span class="val">${E(a.c)} = ${a.bin}</span>. `
+             :`${E(a.c)} mide lo mismo que el anterior → <span class="val">${E(a.c)} = ${a.bin}</span>. `);
+    X+=`<span class="dim">(En el árbol tradicional era ${D.hcode[a.c]}.)</span> `;
+    X+=lastC?`<span class="cy">Árbol canónico completo:</span> mismas longitudes, pero en escalera: lo corto a la izquierda y lo que sobra siempre a la derecha.`
+            :`Lo que queda libre está <span class="sa">a la derecha</span>.`;
+    V.push(`<div class="grid2">`+
+      slab('árbol canónico (se arma desde los códigos)',`<div class="svgwrap">${canonSVG(D,s.i+1,{hlLast:true})}</div>`)+
+      slab('tabla de códigos',codeTable(D,{cols:['k','l','h','c','how'],upto:s.i+1,newIdx:s.i}))+`</div>`);
+  }
+
+  else if(s.k==='concat'){
+    const c=D.chars[s.i-1], a=D.cum[s.i-1]+1, b=D.cum[s.i];
+    T=`Escribir los bits: carácter ${s.i} de ${D.n}`;
+    X=`<span class="val">${E(c)} → ${D.ccode[c]}</span> <span class="dim">→ ${a===b?'bit '+a:'bits '+a+' a '+b}.</span> Los códigos se pegan <span class="val">sin separadores</span>: como ninguno es el comienzo de otro, después se pueden separar solos.`;
+    if(Math.ceil(a/8)!==Math.ceil(b/8)) X+=` <span class="sa">Este código queda partido entre dos bytes:</span> no importa, el descompresor lee bit a bit.`;
+    if(s.i===D.n) X+=` Total: <span class="val">${D.N} bits</span>.`;
+    V.push(slab('la cadena con sus códigos canónicos',wordRow(D,s.i,s.i-1)));
+    V.push(slab('cadena comprimida, bit a bit',`<div class="scroll">${strip(D,{mode:'enc',upto:D.cum[s.i],from:D.cum[s.i-1]})}</div>`));
+  }
+
+  else if(s.k==='cut'){
+    T='Cortar en bytes de 8 bits';
+    X=`Los archivos se guardan en bytes completos: techo(${D.N} / 8) = <span class="val">${D.NB} byte${D.NB>1?'s':''}</span> = ${D.NB*8} bits. `+
+      (D.PAD?`Sobran <span class="sa">${D.PAD}</span> posiciones al final y se rellenan con 0. Por eso habrá que avisar cuántos bits son válidos (${D.N}); si no, ese relleno se leería como letras de más.`
+            :`<span class="cy">Justo cabe:</span> no hace falta relleno.`);
+    V.push(slab('bits agrupados en bytes',`<div class="scroll">${strip(D,{mode:'enc',upto:D.N,from:D.N,cut:true})}</div>`));
+  }
+
+  else if(s.k==='byte'){
+    const B=D.bytes[s.j], terms=W8.filter((w,i)=>B.s[i]==='1');
+    T=`Byte ${s.j+1} de ${D.NB} a hexadecimal`;
+    X=`Byte ${s.j+1} = <span class="val">${B.s}</span>. Cada posición pesa 128, 64, 32, 16, 8, 4, 2, 1: ${terms.length?terms.join(' + '):'0'} = <span class="val">${B.dec}</span>. `+
+      `Para el hexadecimal se parte en dos <span class="val">nibbles</span> de 4 bits: ${B.hi} = ${B.hiV} → <span class="val">${B.hiV.toString(16).toUpperCase()}</span> y ${B.lo} = ${B.loV} → <span class="val">${B.loV.toString(16).toUpperCase()}</span>. Byte = <span class="val">${B.hx}</span>.`;
+    V.push(slab('bits agrupados en bytes',`<div class="scroll">${strip(D,{mode:'enc',upto:D.N,from:D.N,cut:true,active:s.j})}</div>`));
+    V.push(`<div class="grid2">`+slab('',byteCard(D,s.j))+
+      slab('archivo comprimido en hexadecimal',`<div class="hexrow c">${D.hex.map((h,j)=>j<=s.j?`<span>${h}</span>`:`<span class="ph">__</span>`).join('')}</div>`)+`</div>`);
+  }
+
+  else if(s.k==='header'){
+    T='Lo que viaja: datos + encabezado';
+    X=`Para que otro computador pueda descomprimir se envían los datos <span class="val">${D.hex.join(' ')}</span> y un encabezado pequeño: cuántos bits son válidos, listNum y los caracteres en orden canónico. `+
+      `<span class="val">No se envían ni las frecuencias, ni el árbol, ni los códigos.</span> `+
+      (D.headerTotal>=D.n?`<span class="sa">Con una cadena tan corta el encabezado pesa más que lo que se ahorra</span>; en textos largos el encabezado casi no crece y la ganancia sí se nota.`
+                         :`<span class="cy">Aun con el encabezado, el archivo queda más pequeño que el original.</span>`);
+    V.push(`<div class="grid2">`+
+      slab('original en ASCII (8 bits por carácter)',`<div class="hexrow">${D.chars.map(c=>`<span title="${E(c)}">${c.charCodeAt(0).toString(16).toUpperCase().padStart(2,'0')}</span>`).join('')}</div><div class="center dim" style="margin-top:6px">${D.n} bytes = ${D.n*8} bits</div>`+
+        `<div class="ttl" style="margin-top:14px">comprimido</div><div class="hexrow c">${D.hex.map(h=>`<span>${h}</span>`).join('')}</div><div class="center dim" style="margin-top:6px">${D.NB} bytes = ${D.NB*8} bits (${D.N} útiles${D.PAD?' + '+D.PAD+' de relleno':''})</div>`)+
+      slab('encabezado mínimo para poder descomprimir',`<table class="tbl"><tr><th>campo</th><th>bytes</th></tr>`+
+        D.header.map(r=>`<tr><td class="l">${esc(r[0])}</td><td class="n">${r[1]}</td></tr>`).join('')+
+        `<tr class="tot"><td class="l">total del archivo comprimido</td><td class="n">${D.headerTotal}</td></tr><tr><td class="l dim">archivo original</td><td class="n" style="color:var(--chalk)">${D.n}</td></tr></table>`)+
+    `</div>`);
+  }
+
+  else if(s.k==='hex2bin'){
+    T='Descomprimir: de hexadecimal a bits';
+    X=`Ahora somos el otro computador. Cada dígito hexadecimal son <span class="val">4 bits</span> (siempre los 4, con ceros a la izquierda): `+
+      D.hex.map(h=>[...h].map(d=>`${d} = ${parseInt(d,16).toString(2).padStart(4,'0')}`).join(', ')).join(' · ')+'. '+
+      (D.PAD?`El encabezado dice <span class="val">${D.N} bits válidos</span>: los últimos <span class="sa">${D.PAD}</span> son relleno y se tachan.`:`No hay relleno que quitar.`);
+    V.push(slab('bits reconstruidos',`<div class="scroll">${strip(D,{mode:'dec',cur:-1})}</div>`));
+  }
+
+  else if(s.k==='tables'){
+    T='Rehacer los códigos desde el encabezado';
+    X=`Con listNum = [${D.listNum.join(', ')}] y la lista ${D.canon.map(E).join(' ')} se rehacen los códigos con la <span class="val">misma regla</span> del compresor («+1 y agregar 0»). `+
+      `Hay dos maneras de usarlos: la <span class="val">básica</span> compara lo leído con la tabla; la de <span class="val">first / start</span> hace lo mismo con una resta.`;
+    V.push(`<div class="grid2">`+
+      slab('versión básica: tabla de códigos',codeTable(D,{cols:['k','l','c','how']}))+
+      slab('versión first / start',firstStartTable(D)+`<div class="chips" style="margin-top:12px">${D.canon.map((c,i)=>`<span class="dim" style="font-size:13px">${i}</span>${chip(D,c)}`).join('')}</div><div class="center dim" style="font-size:14px;margin-top:6px">lista canónica (posiciones desde 0)</div>`)+
+    `</div>`);
+  }
+
+  else if(s.k==='bit'){
+    const r=D.rows[s.i];
+    T=`Leer bit ${s.i+1} de ${D.N}`;
+    if(r.ok){
+      X=`Bit ${r.i+1} = ${r.b}. Llevo <span class="val">${r.buf}</span>: <span class="cy">está en la tabla</span> → <span class="val">${E(r.sym)}</span>. `+
+        `<span class="dim">Con first/start: v = ${r.v}, v − first[${r.l}] = ${r.d} &lt; listNum[${r.l}] = ${D.listNum[r.l]} → posición start[${r.l}] + ${r.d} = ${r.idx} → ${E(r.sym)}.</span> Se escribe y se empieza a leer desde cero.`;
+    }else{
+      X=`Bit ${r.i+1} = ${r.b}. Llevo <span class="val">${r.buf}</span>: <span class="sa">no es ningún código</span>, así que leo otro bit. `+
+        `<span class="dim">Con first/start: v = ${r.v}, v − first[${r.l}] = ${r.d} ≥ listNum[${r.l}] = ${D.listNum[r.l]} → todavía no.</span>`;
+    }
+    V.push(slab('bits a decodificar',`<div class="scroll">${strip(D,{mode:'dec',cur:s.i})}</div>`));
+    const basic=`<div class="buf"><span class="dim">llevo:</span><span class="bits">${r.buf}</span></div>`+
+      `<div class="chips">${D.canon.map(c=>`<span class="chip ${r.ok&&r.sym===c?'hl':''}" style="${sty(D,c)}">${E(c)} = ${D.ccode[c]}</span>`).join('')}</div>`+
+      `<div class="center reg" style="margin-top:8px">${r.ok?`¡coincide con <span class="emit" style="${sty(D,r.sym)}">${E(r.sym)}</span>!`:'<span class="no">no coincide con ninguno → leer otro bit</span>'}</div>`;
+    const fs=`<div class="reg"><div>l = <span class="val">${r.l}</span> · v = ${r.l===1?'':`2·${r.vPrev} + ${r.b} = `}<span class="val">${r.v}</span> <span class="dim">(${r.vbin})</span></div>`+
+      `<div>v − first[${r.l}] = ${r.v} − ${r.first} = <span class="val">${r.d}</span> ¿&lt; listNum[${r.l}] = ${D.listNum[r.l]}? ${r.ok?'<span class="yes">sí</span>':'<span class="no">no</span>'}</div>`+
+      (r.ok?`<div>lista[start[${r.l}] + ${r.d}] = lista[${r.idx}] = <span class="emit" style="${sty(D,r.sym)}">${E(r.sym)}</span></div>`:'<div class="dim">leer otro bit</div>')+`</div>`;
+    V.push(`<div class="grid2">`+slab('versión básica',basic)+slab('versión first / start',fs)+`</div>`);
+    V.push(slab(`texto recuperado: ${r.text.length} de ${D.n}`,`<div class="bigword">${r.text?colorWord(D,r.text):'<span class="dim">—</span>'}</div>`));
+    V.push(slab('traza bit a bit',`<div class="tracewrap" id="tracewrap">${traceTable(D,s.i)}</div>`));
+  }
+
+  else if(s.k==='end'){
+    const ok=D.decoded===D.word;
+    T='Resultado';
+    X=`Se leyeron los ${D.N} bits válidos y salió <span class="val">${esc(D.decoded)}</span>. ${ok?'<span class="cy">Es exactamente la cadena original.</span>':'<span class="sa">No coincide.</span>'} `+
+      `El descompresor nunca vio el árbol: le bastaron <span class="val">listNum</span> y los caracteres en orden canónico.`;
+    V.push(slab('',`<div class="center dim">original</div><div class="bigword">${colorWord(D,D.word)}</div>`+
+      `<div class="center dim" style="margin-top:8px">descomprimido</div><div class="bigword">${colorWord(D,D.decoded)}</div>`+
+      `<div class="center"><span class="ok-badge">${ok?'¿coincide? sí ✓':'no coincide'}</span></div>`));
+    V.push(`<div class="grid2">`+
+      slab('números finales',`<table class="tbl">`+
+        `<tr><td class="l">original en ASCII</td><td class="n">${D.n*8} bits</td></tr>`+
+        `<tr><td class="l">comprimido (datos útiles)</td><td class="n">${D.N} bits</td></tr>`+
+        `<tr><td class="l">comprimido en bytes</td><td class="n">${D.NB} bytes: ${D.hex.join(' ')}</td></tr>`+
+        `<tr><td class="l">con encabezado</td><td class="n">${D.headerTotal} bytes</td></tr>`+
+        `<tr><td class="l">original</td><td class="n" style="color:var(--chalk)">${D.n} bytes</td></tr></table>`)+
+      slab('lo que se hizo',`<ol class="recap">
+        <li><b>Frecuencias</b> de cada carácter.</li>
+        <li><b>Lista enlazada ordenada</b>: sacar los dos menores, unirlos, reinsertar.</li>
+        <li><b>Árbol tradicional</b>: de él solo se guardan las <b>longitudes</b>.</li>
+        <li><b>Canónico</b>: ordenar por (longitud, carácter) y «+1 y agregar 0».</li>
+        <li><b>Bits → bytes → hex</b>: pegar códigos, rellenar, partir en nibbles.</li>
+        <li><b>Descomprimir</b>: hex → bits, rehacer los códigos y leer hasta que coincidan.</li></ol>`)+
+    `</div>`);
+  }
+  return {T,X,V:V.join('')};
+}
+
+/* ============ estado y navegación ============ */
+let D=null, steps=[], cur=0, autoT=null;
+function stageStarts(){const m={};steps.forEach((s,i)=>{if(m[s.st]===undefined)m[s.st]=i;});return m;}
+function renderStages(){
+  const m=stageStarts(), st=steps[cur].st;
+  $('stages').innerHTML=STAGES.map((t,i)=>`<button data-st="${i}" class="${i===st?'on':(i<st?'done':'')}">${t}</button>`).join('');
+  $('stages').querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{stopAuto();go(m[+b.dataset.st]);}));
+}
+function go(k){
+  if(!D||k<0||k>=steps.length) return;
+  cur=k;
+  const s=steps[k], r=renderStep(D,s,k);
+  $('stepLbl').textContent=`Paso ${k+1} de ${steps.length}`;
+  $('prev').disabled=k===0; $('next').disabled=k===steps.length-1;
+  $('bar').style.width=((k+1)/steps.length*100)+'%';
+  $('stitle').textContent=r.T;
+  $('explain').innerHTML=r.X;
+  $('view').innerHTML=r.V;
+  const tw=$('tracewrap'); if(tw) tw.scrollTop=tw.scrollHeight;
+  renderStages();
+}
+function stopAuto(){if(autoT){clearInterval(autoT);autoT=null;$('auto').textContent='Reproducir';}}
+function build(){
+  stopAuto();
+  const w=$('inp').value;
+  const n=[...w].length;
+  if(!n){$('err').textContent='Escribe al menos un carácter.';return;}
+  if(n>11){$('err').textContent='Máximo 11 caracteres.';return;}
+  $('err').textContent='';
+  D=compute(w); steps=buildSteps(D); go(0);
+}
+function upd(){ $('count').textContent=[...$('inp').value].length+' / 11'; }
+$('inp').addEventListener('input',upd);
+$('inp').addEventListener('keydown',e=>{if(e.key==='Enter')build();});
+$('build').addEventListener('click',build);
+document.querySelectorAll('.samples button').forEach(b=>b.addEventListener('click',()=>{$('inp').value=b.dataset.s;upd();build();}));
+$('next').addEventListener('click',()=>{stopAuto();go(cur+1);});
+$('prev').addEventListener('click',()=>{stopAuto();go(cur-1);});
+$('reset').addEventListener('click',()=>{stopAuto();go(0);});
+$('auto').addEventListener('click',()=>{
+  if(autoT){stopAuto();return;}
+  if(cur===steps.length-1) go(0);
+  $('auto').textContent='Pausar';
+  autoT=setInterval(()=>{ if(cur>=steps.length-1){stopAuto();return;} go(cur+1); },2200);
+});
+document.addEventListener('keydown',e=>{
+  if(document.activeElement===$('inp')) return;
+  if(e.key==='ArrowRight'){stopAuto();go(cur+1);} else if(e.key==='ArrowLeft'){stopAuto();go(cur-1);}
+});
+upd(); build();
+})();
+</script>
+<script>
+(function(){
+'use strict';
+const POOL=['BANANA','ABRACADABRA','ALEXANDER','MANZANA','AAAAB','CASACASA','PROGRAMA','DATOS'];
+const cmp=(a,b)=>a<b?-1:a>b?1:0;
+const esc=s=>String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+const show=c=>c===' '?'\u2423':c;
+function solve(w){
+ const ch=[...w],f={};ch.forEach(c=>f[c]=(f[c]||0)+1);
+ const syms=Object.keys(f).sort((a,b)=>f[a]-f[b]||cmp(a,b));
+ let list=syms.map(c=>({w:f[c],leaf:true,c}));
+ while(list.length>1){
+  const A=list.shift(),B=list.shift();let L=A,R=B;
+  if(A.w===B.w&&A.leaf&&!B.leaf){L=B;R=A;}
+  const n={w:A.w+B.w,leaf:false,l:L,r:R};
+  let i=0;while(i<list.length&&list[i].w<=n.w)i++;list.splice(i,0,n);
+ }
+ const len={};(function walk(n,d){if(n.leaf){len[n.c]=d;return;}walk(n.l,d+1);walk(n.r,d+1);})(list[0],0);
+ const canon=Object.keys(len).sort((a,b)=>len[a]-len[b]||cmp(a,b));
+ const code={};let v=0,prev=0;
+ canon.forEach((c,i)=>{v=i===0?0:(v+1)<<(len[c]-prev);prev=len[c];code[c]=v.toString(2).padStart(len[c],'0');});
+ const bits=ch.map(c=>code[c]).join('');
+ const pad=bits.padEnd(Math.ceil(bits.length/8)*8,'0');
+ const hex=[];for(let i=0;i<pad.length;i+=8)hex.push(parseInt(pad.slice(i,i+8),2).toString(16).toUpperCase().padStart(2,'0'));
+ return {word:w,f,code,bits,hex,total:bits.length,ascii:ch.length*8,order:Object.keys(f).sort(cmp)};
+}
+/*END-SOLVE*/
+if(typeof document==='undefined')return;
+const $=id=>document.getElementById(id);
+let cur=null,last='';
+function render(w){
+ cur=solve(w);const r=cur;
+ $('retoBody').innerHTML=
+  '<div class="chips" style="justify-content:flex-start;margin:10px 0">'+[...w].map(c=>'<span class="chip">'+esc(show(c))+'</span>').join('')+'</div>'+
+  '<div class="dim">Cadena de '+[...w].length+' caracteres ('+r.ascii+' bits en ASCII). Frecuencias: '+r.order.map(c=>esc(show(c))+'='+r.f[c]).join(' &middot; ')+'</div>'+
+  '<div class="rq"><span class="cy">C&oacute;digo can&oacute;nico:</span>'+r.order.map(c=>'<span><b class="val">'+esc(show(c))+'</b> <input data-k="c" data-c="'+esc(c)+'" inputmode="numeric" maxlength="12" aria-label="C&oacute;digo de '+esc(show(c))+'"></span>').join('')+'</div>'+
+  '<div class="rq"><label for="rTot">Bits totales con Huffman:</label><input id="rTot" data-k="t" inputmode="numeric"></div>'+
+  '<div class="rq"><label for="rHex">Bytes en hexadecimal:</label><input id="rHex" class="wide" data-k="h" placeholder="ej. D1 17 F0" autocomplete="off"></div>'+
+  '<div class="rq"><button id="rChk" class="primary">Comprobar</button><button id="rSol">Ver soluci&oacute;n</button><button id="rSim">Verlo en el simulador</button></div>'+
+  '<div id="retoMsg" role="status"></div>';
+ $('rChk').onclick=check;$('rSol').onclick=solution;
+ $('rSim').onclick=()=>{$('inp').value=w;$('build').click();$('inp').scrollIntoView({behavior:'smooth',block:'center'});};
+}
+function check(){
+ let ok=0,tot=0;const r=cur,hints=[];
+ document.querySelectorAll('#retoBody input').forEach(i=>{
+  const k=i.dataset.k;let good;
+  if(k==='c')good=i.value.trim()===r.code[i.dataset.c];
+  else if(k==='t')good=i.value.trim()===String(r.total);
+  else good=i.value.replace(/[\s,]/g,'').toUpperCase()===r.hex.join('');
+  i.classList.toggle('ok',good);i.classList.toggle('bad',!good);
+  tot++;if(good)ok++;else if(!i.value.trim()){}else hints.push(k);
+ });
+ const m=$('retoMsg');
+ if(ok===tot){m.className='cy';m.textContent='\u00a1Perfecto! '+ok+' de '+tot+' correctos.';return;}
+ m.className='sa';
+ let t=ok+' de '+tot+' correctos.';
+ if(hints.includes('c'))t+=' Revisa las etapas \u2461 y \u2463 (longitudes y regla \u00ab+1 y agregar 0\u00bb).';
+ else if(hints.includes('t'))t+=' Revisa la etapa \u2463: total = suma de frecuencia \u00d7 longitud.';
+ else if(hints.includes('h'))t+=' Revisa la etapa \u2464: pega los c\u00f3digos, rellena con ceros y parte en bytes.';
+ m.textContent=t;
+}
+function solution(){
+ const r=cur;
+ document.querySelectorAll('#retoBody input').forEach(i=>{const k=i.dataset.k;i.value=k==='c'?r.code[i.dataset.c]:k==='t'?r.total:r.hex.join(' ');i.classList.remove('bad');i.classList.add('ok');});
+ const m=$('retoMsg');m.className='val';
+ m.textContent='Bits: '+r.bits+' ('+r.total+' frente a '+r.ascii+' en ASCII)';
+}
+function start(w){last=w;render(w);}
+$('retoNew').onclick=()=>{let w;do{w=POOL[Math.floor(Math.random()*POOL.length)];}while(w===last&&POOL.length>1);start(w);};
+$('retoOwn').onclick=()=>{
+ const w=$('retoWord').value.toUpperCase();
+ if(new Set([...w]).size<2){$('retoBody').innerHTML='<div class="sa">Escribe una cadena con al menos 2 caracteres distintos (m&aacute;ximo 11).</div>';return;}
+ start(w);
+};
+$('retoWord').addEventListener('keydown',e=>{e.stopPropagation();if(e.key==='Enter')$('retoOwn').click();});
+$('retoBody').addEventListener('keydown',e=>e.stopPropagation());
+start('BANANA');
+})();
 </script>
 </body>
 </html>
