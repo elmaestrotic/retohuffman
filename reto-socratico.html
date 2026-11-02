@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reto Huffman - Simulador socrático</title>
+<style>
+body{font-family:system-ui,sans-serif;max-width:900px;margin:1rem auto;padding:0 1rem;color:#222}
+.card{border:1px solid #ccc;border-radius:8px;padding:1rem;margin:1rem 0}
+.q{font-weight:600;color:#145}
+.msg{margin:.5rem 0;min-height:1.2em}.ok{color:#080}.bad{color:#b00}.hint{color:#765}
+.list{display:flex;align-items:center;flex-wrap:wrap;gap:.3rem;margin:.5rem 0}
+.node{border:2px solid #357;border-radius:6px;padding:.3rem .6rem;cursor:pointer;background:#eef}
+.node.sel{background:#fd8}.arrow{color:#888}
+table{border-collapse:collapse}td,th{border:1px solid #bbb;padding:.2rem .5rem}
+input{padding:.2rem;font-family:monospace}
+pre{background:#f6f6f6;padding:.5rem;overflow:auto}
+</style>
+</head>
+<body>
+<h1>Reto Huffman</h1>
+<p>Sigue el paso a paso. El simulador no te da la respuesta: te hace preguntas y pistas hasta que la construyas tú.
+Repasamos <b>árboles</b>, <b>listas enlazadas</b> y la conversión <b>binario → hexadecimal</b>.</p>
+<div class="card">
+  <label>Texto del reto: <input id="text" value="ABRACADABRA" maxlength="40"></label>
+  <button id="start">Comenzar</button>
+</div>
+<div id="app"></div>
+<script>
+"use strict";
+const app = document.getElementById("app");
+let S;
+
+function el(tag, attrs, ...kids) {
+  const e = document.createElement(tag);
+  Object.entries(attrs || {}).forEach(([k, v]) => { if (k === "onclick") e.onclick = v; else e.setAttribute(k, v); });
+  kids.forEach(k => e.append(k));
+  return e;
+}
+function card(title, question) {
+  const c = el("div", { class: "card" }, el("h2", {}, title), el("p", { class: "q" }, question));
+  app.append(c);
+  const msg = el("div", { class: "msg" });
+  c.append(msg);
+  c.scrollIntoView({ behavior: "smooth" });
+  return { c, say(t, cls) { msg.className = "msg " + cls; msg.textContent = t; } };
+}
+function leaves(n, code, out) {
+  if (n.left) { leaves(n.left, code + "0", out); leaves(n.right, code + "1", out); }
+  else out[n.ch] = code || "0";
+  return out;
+}
+function show(n, d = 0) {
+  if (!n.left) return "  ".repeat(d) + `'${n.ch}' (${n.w})\n`;
+  return "  ".repeat(d) + `* (${n.w})\n` + show(n.left, d + 1) + show(n.right, d + 1);
+}
+
+function start() {
+  const text = document.getElementById("text").value;
+  app.textContent = "";
+  if (new Set(text).size < 2) { app.textContent = "Escribe un texto con al menos 2 símbolos distintos."; return; }
+  S = { text, freq: {} };
+  for (const ch of text) S.freq[ch] = (S.freq[ch] || 0) + 1;
+  step1();
+}
+
+function step1() {
+  const { c, say } = card("Paso 1. Frecuencias", `Texto: "${S.text}" (${S.text.length} símbolos). ¿Cuántas veces aparece cada símbolo?`);
+  const inputs = {}, t = el("table", {});
+  Object.keys(S.freq).sort().forEach(ch => {
+    inputs[ch] = el("input", { size: 4, type: "number" });
+    t.append(el("tr", {}, el("th", {}, JSON.stringify(ch)), el("td", {}, inputs[ch])));
+  });
+  const btn = el("button", { onclick() {
+    const wrong = Object.keys(S.freq).filter(ch => Number(inputs[ch].value) !== S.freq[ch]);
+    if (wrong.length) return say(`Revisa: ${wrong.map(w => JSON.stringify(w)).join(", ")}. Pista: recorre el texto y cuenta con calma; la suma total debe ser ${S.text.length}.`, "bad");
+    say("¡Correcto!", "ok"); btn.disabled = true; step2();
+  } }, "Verificar");
+  c.append(t, btn);
+}
+
+function step2() {
+  S.list = Object.keys(S.freq).map(ch => ({ ch, w: S.freq[ch], left: null, right: null, order: ch }));
+  S.list.sort((a, b) => a.w - b.w || (a.order < b.order ? -1 : 1));
+  const { c, say } = card("Paso 2. Lista enlazada ordenada",
+    "Cada nodo es una hoja. ¿Cuáles dos nodos tienen menor peso? Selecciónalos (primero será el hijo 0/izquierdo, luego el 1/derecho) y pulsa Unir.");
+  const box = el("div", { class: "list" });
+  let sel = [];
+  const draw = () => {
+    box.textContent = "";
+    S.list.forEach((n, i) => {
+      if (i) box.append(el("span", { class: "arrow" }, "→"));
+      box.append(el("span", { class: "node" + (sel.includes(n) ? " sel" : ""), onclick() {
+        sel = sel.includes(n) ? sel.filter(x => x !== n) : sel.length < 2 ? [...sel, n] : sel; draw();
+      } }, n.left ? `* (${n.w})` : `${JSON.stringify(n.ch)} (${n.w})`));
+    });
+    box.append(el("span", { class: "arrow" }, "→ null"));
+  };
+  const btn = el("button", { onclick() {
+    if (sel.length !== 2) return say("Selecciona exactamente dos nodos.", "hint");
+    const sorted = S.list.map(n => n.w);
+    if (sel[0].w + sel[1].w !== sorted[0] + sorted[1])
+      return say("Esos no son los dos menores. Pista: la lista está ordenada; mira sus primeros elementos.", "bad");
+    const merged = { ch: null, w: sel[0].w + sel[1].w, left: sel[0], right: sel[1], order: "~" };
+    S.list = S.list.filter(n => !sel.includes(n));
+    let i = S.list.findIndex(n => n.w > merged.w);
+    if (i < 0) i = S.list.length;
+    S.list.splice(i, 0, merged);
+    sel = [];
+    say(`Nuevo nodo con peso ${merged.w}. Se insertó en la lista manteniendo el orden.`, "ok");
+    draw();
+    if (S.list.length === 1) { btn.disabled = true; S.root = S.list[0]; say("¡Quedó un solo nodo: la raíz del árbol!", "ok"); step3(); }
+  } }, "Unir");
+  c.append(box, btn);
+  draw();
+}
+
+function step3() {
+  const { c } = card("Paso 3. El árbol", "Este es el árbol que construiste. Observa: izquierda = 0, derecha = 1.");
+  c.append(el("pre", {}, show(S.root)));
+  step4();
+}
+
+function step4() {
+  S.codes = leaves(S.root, "", {});
+  const { c, say } = card("Paso 4. Códigos", "Recorre el árbol desde la raíz hasta cada hoja. ¿Qué código tiene cada símbolo?");
+  const inputs = {}, t = el("table", {});
+  Object.keys(S.codes).sort().forEach(ch => {
+    inputs[ch] = el("input", { size: 10 });
+    t.append(el("tr", {}, el("th", {}, JSON.stringify(ch)), el("td", {}, inputs[ch])));
+  });
+  const btn = el("button", { onclick() {
+    const wrong = Object.keys(S.codes).filter(ch => inputs[ch].value.trim() !== S.codes[ch]);
+    if (wrong.length) return say(`Revisa ${wrong.map(w => JSON.stringify(w)).join(", ")}. Pista: ¿cuántos niveles baja? ¿giraste a la izquierda (0) o derecha (1) en cada uno?`, "bad");
+    say("¡Correcto! Los símbolos más frecuentes tienen códigos más cortos.", "ok"); btn.disabled = true; step5();
+  } }, "Verificar");
+  c.append(t, btn);
+}
+
+function step5() {
+  S.bin = [...S.text].map(ch => S.codes[ch]).join("");
+  const { c, say } = card("Paso 5. Codificar", `Reemplaza cada símbolo de "${S.text}" por su código y concatena. Compara: ASCII usaría ${S.text.length * 8} bits.`);
+  const inp = el("input", { size: 60 });
+  const btn = el("button", { onclick() {
+    const v = inp.value.replace(/\s/g, "");
+    if (v !== S.bin) return say(`No coincide${v.length !== S.bin.length ? ` (la longitud esperada es ${S.bin.length} bits, tú escribiste ${v.length})` : ""}. Pista: hazlo símbolo por símbolo.`, "bad");
+    say(`¡Correcto! ${S.bin.length} bits.`, "ok"); btn.disabled = true; step6();
+  } }, "Verificar");
+  c.append(inp, btn);
+}
+
+function step6() {
+  const pad = (4 - S.bin.length % 4) % 4;
+  const padded = S.bin + "0".repeat(pad);
+  S.hex = padded.match(/.{4}/g).map(g => parseInt(g, 2).toString(16).toUpperCase()).join("");
+  const { c, say } = card("Paso 6. Binario → Hexadecimal",
+    `Agrupa los bits de 4 en 4 (de izquierda a derecha${pad ? `; faltan ${pad} bit(s), rellena con ceros al final` : ""}) y convierte cada grupo a un dígito hexadecimal (0-9, A-F).`);
+  const inp = el("input", { size: 30 });
+  const btn = el("button", { onclick() {
+    const v = inp.value.replace(/\s/g, "").toUpperCase();
+    if (v !== S.hex) return say("No coincide. Pista: 1010 = 8+2 = 10 = A. Calcula el valor de cada grupo de 4 bits.", "bad");
+    say(`¡Reto completado! Resultado: ${S.hex}`, "ok"); btn.disabled = true;
+  } }, "Verificar");
+  c.append(inp, btn);
+}
+
+document.getElementById("start").onclick = start;
+start();
+</script>
+</body>
+</html>
